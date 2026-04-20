@@ -32,7 +32,7 @@ SCALE     = int(PH * 1.4)  # world → pixels
 
 # Front panel pivot
 FP_X = PW // 2
-FP_Y = int(PH * 0.30)
+FP_Y = int(PH * 0.60)
 
 # Top panel pivot (centre of right half)
 TP_X = PW + PW // 2
@@ -88,7 +88,7 @@ def step():
     th2 = theta[None]; ph2 = phi[None]
     tip[None] = ti.Vector([
         ti.cast(L * ti.sin(th2) * ti.cos(ph2), ti.f32),
-        ti.cast(L * (1.0 - ti.cos(th2)),       ti.f32),
+        ti.cast(L * ti.cos(th2),              ti.f32),
         ti.cast(L * ti.sin(th2) * ti.sin(ph2), ti.f32),
     ])
 
@@ -155,9 +155,9 @@ def render():
         col  = ti.Vector([0.15 + 0.55*z_n, 0.45 + 0.45*z_n, 1.0]) * (fade * 0.88 + 0.04)
 
         ax = FP_X + ti.cast(pa[0] * sc, ti.i32)
-        ay = FP_Y + ti.cast(pa[1] * sc, ti.i32)
+        ay = FP_Y - ti.cast(pa[1] * sc, ti.i32)
         bx = FP_X + ti.cast(pb[0] * sc, ti.i32)
-        by = FP_Y + ti.cast(pb[1] * sc, ti.i32)
+        by = FP_Y - ti.cast(pb[1] * sc, ti.i32)
         dx = bx - ax; dy = by - ay
         ns = ti.max(ti.abs(dx), ti.abs(dy))
         if ns > 0:
@@ -170,7 +170,7 @@ def render():
 
     # ── Front rod ───────────────────────────────────────
     bob_fx = FP_X + ti.cast(tx * sc, ti.i32)
-    bob_fy = FP_Y + ti.cast(ty * sc, ti.i32)
+    bob_fy = FP_Y - ti.cast(ty * sc, ti.i32)
     dx = bob_fx - FP_X; dy = bob_fy - FP_Y
     rl = ti.max(ti.abs(dx), ti.abs(dy))
     if rl > 0:
@@ -275,9 +275,9 @@ def render():
         ]) * (fade * 0.88 + 0.04)
 
         ax = TP_X + ti.cast(pa[0] * sc, ti.i32)
-        ay = TP_Y + ti.cast(pa[2] * sc, ti.i32)
+        ay = TP_Y - ti.cast(pa[2] * sc, ti.i32)
         bx = TP_X + ti.cast(pb[0] * sc, ti.i32)
-        by = TP_Y + ti.cast(pb[2] * sc, ti.i32)
+        by = TP_Y - ti.cast(pb[2] * sc, ti.i32)
         dx = bx - ax; dy = by - ay
         ns = ti.max(ti.abs(dx), ti.abs(dy))
         if ns > 0:
@@ -290,7 +290,7 @@ def render():
 
     # ── Top rod (pivot → bob shadow on XZ plane) ─────────
     bob_tx = TP_X + ti.cast(tx * sc, ti.i32)
-    bob_ty = TP_Y + ti.cast(tz * sc, ti.i32)
+    bob_ty = TP_Y - ti.cast(tz * sc, ti.i32)
     dx = bob_tx - TP_X; dy = bob_ty - TP_Y
     rl2 = ti.max(ti.abs(dx), ti.abs(dy))
     if rl2 > 0:
@@ -326,7 +326,7 @@ def render():
                     img[ppx, ppy] = ti.Vector([0.95, 1.0, 0.97])
 
     # ── Top bob (Phong, y-depth shading = how low bob hangs) ──
-    y_n   = ty / L              # 0 (at top) .. 1 (fully down)
+    y_n   = (ty / L + 1.0) * 0.5    # 0 (at top) .. 1 (fully down)
     bob_r2 = ti.cast(10.0 + y_n * 6.0, ti.i32)
     glow_r2 = bob_r2 + 16
     for ox in range(-glow_r2, glow_r2 + 1):
@@ -360,14 +360,20 @@ def main():
     gui = ti.GUI("Spherical Pendulum  |  Front & Top View  |  [R] reset  [ESC] quit",
                  res=(W, H), fast_gui=True)
 
+    frame = 0
+    slow_mo = False
     while gui.running:
         for e in gui.get_events():
             if e.key == ti.GUI.ESCAPE:
                 gui.running = False
             elif e.key == 'r':
                 init()
+                frame = 0
+            elif e.key == ti.GUI.SPACE:
+                slow_mo = not slow_mo
 
-        for _ in range(STEPS):
+        cur_steps = STEPS // 4 if slow_mo else STEPS
+        for _ in range(cur_steps):
             step()
         record()
         render()
@@ -382,6 +388,7 @@ def main():
         gui.text("TOP  VIEW  (X – Z)",    pos=(0.53, 0.97), color=0x33DDAA, font_size=20)
         gui.text("← X →",                pos=(0.69, 0.92), color=0x1A3330, font_size=14)
         gui.text("↓ Z",                   pos=(0.53, 0.87), color=0x1A3330, font_size=14)
+        gui.text("SPACE: Slow Mo",        pos=(0.53, 0.03), color=0x33DDAA, font_size=15)
 
         th_deg = math.degrees(float(theta[None]))
         ph_deg = math.degrees(float(phi[None])) % 360
