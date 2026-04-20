@@ -8,7 +8,6 @@ Right now, this repository focuses on pendulum-based experiments in:
 Current pendulum simulations include:
 - A chaotic pendulum simulation
 - A single pendulum simulation
-- A front/top-view pendulum simulation
 
 ## Goal
 
